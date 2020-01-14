@@ -12,6 +12,10 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import GradientBoostingRegressor
 
+from sklearn.preprocessing import StandardScaler
+from keras.models import Sequential
+from keras.layers import Dense
+
 # Load stock data
 ticker = 'AAPL'
 tickerFile = ticker + '.csv'
@@ -77,10 +81,27 @@ plt.show()
 # Random forest
 randomForest = RandomForestRegressor(n_estimators=200, max_depth=5)
 randomForest.fit(trainFeatures, trainTargets)
-print('Random forest score:', randomForest.score(trainFeatures, trainTargets))
+print('Random forest train score:', randomForest.score(trainFeatures, trainTargets))
 print('Feature importance array:', randomForest.feature_importances_)
 
 # Gradient boosting
 gbr = GradientBoostingRegressor(learning_rate=0.01, n_estimators=200, subsample=0.06)
 gbr.fit(trainFeatures, trainTargets)
-print('Gradient boosting score:', gbr.score(trainFeatures, trainTargets))
+print('Gradient boosting train score:', gbr.score(trainFeatures, trainTargets))
+
+#Scale data
+sc = StandardScaler()
+scaledTrainFeatures = sc.fit_transform(trainFeatures)
+scaledTestFeatures = sc.transform(testFeatures)
+model = Sequential()
+
+# Keras on scaled data
+model.add(Dense(50, input_dim=scaledTrainFeatures.shape[1], activation='relu'))
+model.add(Dense(10, activation='relu'))
+model.add(Dense(1, activation='linear'))
+
+#trainPreds = model.predict(scaledTrainFeatures)
+plt.scatter(trainPredictions, trainTargets)
+plt.xlabel('predictions')
+plt.ylabel('actual')
+plt.show()
