@@ -6,8 +6,8 @@ import ta
 import statsmodels.api as sm
 
 # Machine learning libraries
-#import keras
-#import tensorflow as tf
+import keras
+import tensorflow as tf
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import GradientBoostingRegressor
@@ -15,6 +15,8 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.preprocessing import StandardScaler
 from keras.models import Sequential
 from keras.layers import Dense
+from keras.layers import Dropout
+from sklearn.metrics import r2_score
 
 # Load stock data
 ticker = 'AAPL'
@@ -24,84 +26,171 @@ stockData = stockData.sort_values(by='Date')
 stockData.set_index('Date', inplace=True)
 
 # Define returns
-returns = stockData['Adj Close'].pct_change().dropna()
-stockData['Returns'] = returns
+#returns = stockData['Adj Close'].pct_change().dropna()
+#stockData['Returns'] = returns
+
+stockData['10 Day Close Pct'] = stockData['Adj Close'].pct_change(10)
 
 # Define technical indicators
 rsi14 = ta.momentum.rsi(close=stockData['Adj Close'], n=14, fillna=False)
 stockData['RSI_14'] = rsi14
 
-
-
 # Define machine learning features & targets
-shift = 10
+shift = -10
 
 stockData = stockData.dropna()
 
-features = stockData[['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Returns', 'RSI_14']]
-features = features.iloc[:-shift]
-targets = stockData['Adj Close'].shift(-shift)
-targets = targets.iloc[:-shift]
-"""
-# Split up machine learning test and train sets
-linearFeatures = sm.add_constant(features.values)
-trainSize = int(0.85 * targets.shape[0])
-trainFeatures = linearFeatures[:trainSize]
-trainTargets = targets[:trainSize]
-testFeatures = linearFeatures[trainSize:]
-print(type(testFeatures))
-testTargets = targets[trainSize:]
-print(type(testTargets))
+features = stockData[['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', '10 Day Close Pct', 'RSI_14']]
+features = features.iloc[:shift]
+targets = stockData['10 Day Close Pct'].shift(shift)
+targets = targets.iloc[:shift]
 
-# Create regression model
-model = sm.OLS(trainTargets, trainFeatures)
-results = model.fit()
-print(results.summary())
-print(results.pvalues)
-"""
 trainSize = int(0.85 * targets.shape[0])
 trainFeatures = features[:trainSize]
 trainTargets = targets[:trainSize]
 testFeatures = features[trainSize:]
 testTargets = targets[trainSize:]
 
+
+
+
+
 # Neural network setup
 decisionTree = DecisionTreeRegressor(max_depth=5)
 decisionTree.fit(trainFeatures, trainTargets)
-#print(decisionTree.score(trainFeatures, trainTargets))
-#print(decisionTree.score(testFeatures, testTargets))
 
 trainPredictions = decisionTree.predict(trainFeatures)
 testPredictions = decisionTree.predict(testFeatures)
-plt.scatter(trainPredictions, trainTargets, label='train')
-plt.scatter(testPredictions, testTargets, label='test')
+
+treeTrain = decisionTree.score(trainFeatures, trainTargets)
+treeTest = decisionTree.score(testFeatures, testTargets)
+print('Neural network train score:', treeTrain)
+print('Neural network test score:', treeTest)
+
+plt.figure()
+plt.scatter(trainPredictions, trainTargets, label='Train')
+plt.scatter(testPredictions, testTargets, label='Test')
+plt.title('Neural Network - Train vs Test Data')
+plt.xlabel('Predictions')
+plt.ylabel('Targets')
 plt.legend()
 plt.show()
+
+
+
+
 
 # Random forest
 randomForest = RandomForestRegressor(n_estimators=200, max_depth=5)
 randomForest.fit(trainFeatures, trainTargets)
-print('Random forest train score:', randomForest.score(trainFeatures, trainTargets))
-print('Feature importance array:', randomForest.feature_importances_)
+trainPredictions = randomForest.predict(trainFeatures)
+testPredictions = randomForest.predict(testFeatures)
+
+forestTrain = randomForest.score(trainFeatures, trainTargets)
+forestTest = randomForest.score(testFeatures, testTargets)
+print('Random forest train score:', forestTrain)
+print('Random forest test score:', forestTest)
+#print('Feature importance array:', randomForest.feature_importances_)
+
+plt.figure()
+plt.scatter(trainPredictions, trainTargets, label='Train')
+plt.scatter(testPredictions, testTargets, label='Test')
+plt.title('Random Forest - Train vs Test Data')
+plt.xlabel('Predictions')
+plt.ylabel('Targets')
+plt.legend()
+plt.show()
+
+
+
+
+
 
 # Gradient boosting
-gbr = GradientBoostingRegressor(learning_rate=0.01, n_estimators=200, subsample=0.06)
+gbr = GradientBoostingRegressor(learning_rate=0.01, n_estimators=200, subsample=0.6)
 gbr.fit(trainFeatures, trainTargets)
-print('Gradient boosting train score:', gbr.score(trainFeatures, trainTargets))
+trainPredictions = gbr.predict(trainFeatures)
+testPredictions = gbr.predict(testFeatures)
+
+gbrTrain = gbr.score(trainFeatures, trainTargets)
+gbrTest = gbr.score(testFeatures, testTargets)
+print('Gradient boosting train score:', gbrTrain)
+print('Gradient boosting test score:', gbrTest)
+
+plt.figure()
+plt.scatter(trainPredictions, trainTargets, label='Train')
+plt.scatter(testPredictions, testTargets, label='Test')
+plt.title('Gradient Boosting - Train vs Test Data')
+plt.xlabel('Predictions')
+plt.ylabel('Targets')
+plt.legend()
+plt.show()
+
 
 #Scale data
 sc = StandardScaler()
 scaledTrainFeatures = sc.fit_transform(trainFeatures)
 scaledTestFeatures = sc.transform(testFeatures)
-model = Sequential()
 
-# Keras on scaled data
+gbr = GradientBoostingRegressor(learning_rate=0.01, n_estimators=200, subsample=0.6)
+gbr.fit(scaledTrainFeatures, trainTargets)
+trainPredictions = gbr.predict(scaledTrainFeatures)
+testPredictions = gbr.predict(scaledTestFeatures)
+
+gbrTrain = gbr.score(scaledTrainFeatures, trainTargets)
+gbrTest = gbr.score(scaledTestFeatures, testTargets)
+print('SCALED Gradient boosting train score:', gbrTrain)
+print('SCALED Gradient boosting test score:', gbrTest)
+
+plt.figure()
+plt.scatter(trainPredictions, trainTargets, label='Train')
+plt.scatter(testPredictions, testTargets, label='Test')
+plt.title('SCALED Gradient Boosting - Train vs Test Data')
+plt.xlabel('Predictions')
+plt.ylabel('Targets')
+plt.legend()
+plt.show()
+
+
+
+
+
+
+"""
+plt.subplot(2,1,1)
+plt.hist(trainFeatures, bins=20)
+plt.subplot(2,1,2)
+plt.hist(scaledTrainFeatures, bins=5)
+plt.show()
+"""
+# Keras on scaled data (originally 50 relu, 10 relu, 1 linear)
+model = Sequential()
 model.add(Dense(50, input_dim=scaledTrainFeatures.shape[1], activation='relu'))
+#model.add(Dropout(0.5))
 model.add(Dense(10, activation='relu'))
 model.add(Dense(1, activation='linear'))
+model.compile(optimizer='adam', loss='mse')
+history = model.fit(scaledTrainFeatures, trainTargets, epochs=50)
+model.fit(scaledTrainFeatures, trainTargets)
 
-#trainPreds = model.predict(scaledTrainFeatures)
-plt.scatter(trainPredictions, trainTargets)
-plt.xlabel('predictions')
-plt.ylabel('actual')
+plt.plot(history.history['loss'])
+plt.title('loss:' + str(round(history.history['loss'][-1], 6)))
+plt.show()
+
+
+trainPredictions = model.predict(scaledTrainFeatures)
+testPredictions = model.predict(scaledTestFeatures)
+
+kerasTrain = r2_score(trainTargets, trainPredictions)
+kerasTest = r2_score(testTargets, testPredictions)
+print('SCALED Keras train score:', kerasTrain)
+print('SCALED Keras test score:', kerasTest)
+
+plt.figure()
+plt.scatter(trainPredictions, trainTargets, label='Train')
+plt.scatter(testPredictions, testTargets, label='Test')
+plt.title('SCALED Keras - Train vs Test Data')
+plt.xlabel('Predictions')
+plt.ylabel('Targets')
+plt.legend()
 plt.show()
